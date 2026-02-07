@@ -2,6 +2,8 @@ package me.eunseong.ocrtextparser.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.List;
+import me.eunseong.ocrtextparser.domain.OcrWord;
 import me.eunseong.ocrtextparser.dto.OcrResponseDto;
 import me.eunseong.ocrtextparser.domain.OcrDocument;
 import org.springframework.stereotype.Component;
@@ -62,12 +64,60 @@ public class OcrDocumentLoader {
 
     OcrResponseDto.Page firstPage = response.getPages().get(0); // 현재 문서는 단일 page
 
+    // Lines 변환
+    List<String> lines = firstPage.getLines().stream()
+        .map(OcrResponseDto.Line::getText)
+        .collect(Collectors.toList());
+
+    // Words 변환 (좌표 포함)
+    List<OcrWord> words = firstPage.getWords().stream()
+        .map(this::convertToOcrWord)
+        .collect(Collectors.toList());
+
     return OcrDocument.builder()
         .text(firstPage.getText())
-        .lines(firstPage.getLines().stream()
-            .map(OcrResponseDto.Line::getText)
-            .collect(Collectors.toList()))
+        .lines(lines)
+        .words(words)
         .confidence(firstPage.getConfidence())
+        .build();
+  }
+
+  /**
+   * API Word를 OcrWord로 변환
+   */
+  private OcrWord convertToOcrWord(OcrResponseDto.Word apiWord) {
+    if (apiWord.getBoundingBox() == null ||
+        apiWord.getBoundingBox().getVertices() == null ||
+        apiWord.getBoundingBox().getVertices().isEmpty()) {
+      // BoundingBox 없으면 기본값
+      return OcrWord.builder()
+          .text(apiWord.getText())
+          .x(0)
+          .y(0)
+          .width(0)
+          .height(0)
+          .confidence(apiWord.getConfidence())
+          .build();
+    }
+
+    List<OcrResponseDto.Vertex> vertices = apiWord.getBoundingBox().getVertices();
+
+    // vertices[0] = 좌상단, vertices[2] = 우하단
+    OcrResponseDto.Vertex topLeft = vertices.get(0);
+    OcrResponseDto.Vertex bottomRight = vertices.size() > 2 ? vertices.get(2) : topLeft;
+
+    int x = topLeft.getX();
+    int y = topLeft.getY();
+    int width = bottomRight.getX() - topLeft.getX();
+    int height = bottomRight.getY() - topLeft.getY();
+
+    return OcrWord.builder()
+        .text(apiWord.getText())
+        .x(x)
+        .y(y)
+        .width(width)
+        .height(height)
+        .confidence(apiWord.getConfidence())
         .build();
   }
 
