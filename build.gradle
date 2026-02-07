@@ -19,9 +19,23 @@ repositories {
 }
 
 dependencies {
+    //web
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    //lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    //test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.7.1'
 }
 
 tasks.named('test') {
