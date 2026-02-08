@@ -1,7 +1,9 @@
 package me.eunseong.ocrtextparser.util;
 
 import java.io.IOException;
+import java.util.List;
 import me.eunseong.ocrtextparser.domain.OcrDocument;
+import me.eunseong.ocrtextparser.domain.OcrWord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +52,34 @@ public class OcrDocumentLoaderTest {
     assertThat(document.getText()).contains("차량번호");
     assertThat(document.getLines()).anyMatch(line ->
         line.contains("8713"));
+  }
+
+  @Test
+  @DisplayName("word에서 좌표 확인")
+  void wordsHaveCoordinates() throws IOException {
+    // given
+    String resourcePath = "samples/sample_01.json";
+
+    // when
+    OcrDocument document = loader.loadFromResource(resourcePath);
+
+    // then
+    assertThat(document.getWords()).isNotEmpty();
+
+    List<OcrWord> words = document.getWords();
+
+    for (int i = 0; i < words.size(); i++) {
+      OcrWord word = words.get(i);
+
+      assertThat(word.getText()).isNotBlank();
+      assertThat(word.getX()).isGreaterThanOrEqualTo(0);
+      assertThat(word.getY()).isGreaterThanOrEqualTo(0);
+
+      System.out.println(
+          "Word[" + i + "]: " + word.getText() +
+              " at (" + word.getX() + ", " + word.getY() + ")"
+      );
+    }
   }
 
   /**
