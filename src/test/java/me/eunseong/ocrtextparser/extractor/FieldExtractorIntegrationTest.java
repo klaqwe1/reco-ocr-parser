@@ -2,11 +2,22 @@ package me.eunseong.ocrtextparser.extractor;
 
 import me.eunseong.ocrtextparser.domain.OcrDocument;
 import me.eunseong.ocrtextparser.domain.Weight;
+import me.eunseong.ocrtextparser.extractor.strategy.ExtractionStrategy;
+import me.eunseong.ocrtextparser.extractor.strategy.PositionBasedStrategy;
+import me.eunseong.ocrtextparser.extractor.strategy.TextBasedStrategy;
+import me.eunseong.ocrtextparser.extractor.weight.NetWeightExtractor;
+import me.eunseong.ocrtextparser.extractor.weight.TotalWeightExtractor;
+import me.eunseong.ocrtextparser.extractor.weight.VehicleWeightExtractor;
+import me.eunseong.ocrtextparser.config.ParserProperties;
 import me.eunseong.ocrtextparser.util.OcrDocumentLoader;
-import org.junit.jupiter.api.Disabled;
+import me.eunseong.ocrtextparser.util.PositionHelper;
+import me.eunseong.ocrtextparser.util.TextMatcher;
+import me.eunseong.ocrtextparser.util.TextNormalizer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -14,11 +25,49 @@ import static org.assertj.core.api.Assertions.*;
 
 class FieldExtractorIntegrationTest {
 
-  private final OcrDocumentLoader loader = new OcrDocumentLoader();
-  private final DateExtractor dateExtractor = new DateExtractor();
-  private final VehicleNumberExtractor vehicleExtractor = new VehicleNumberExtractor();
-  private final WeightExtractor weightExtractor = new WeightExtractor();
-  private final CompanyExtractor companyExtractor = new CompanyExtractor();
+  private OcrDocumentLoader loader;
+  private DateExtractor dateExtractor;
+  private VehicleNumberExtractor vehicleExtractor;
+  private WeightExtractor weightExtractor;
+  private CompanyExtractor companyExtractor;
+
+  @BeforeEach
+  void setUp() {
+    loader = new OcrDocumentLoader();
+
+    // 의존성 생성
+    TextNormalizer textNormalizer = new TextNormalizer();
+    ParserProperties properties = new ParserProperties();
+    properties.setFuzzyMatchThreshold(0.75);
+
+    TextMatcher textMatcher = new TextMatcher(textNormalizer, properties);
+    PositionHelper positionHelper = new PositionHelper(properties);
+
+    // 전략 생성
+    List<ExtractionStrategy> strategies = List.of(
+        new TextBasedStrategy(textMatcher, textNormalizer),
+        new PositionBasedStrategy(textMatcher, positionHelper)
+    );
+
+    // Extractor 생성
+    dateExtractor = new DateExtractor(strategies, textNormalizer);
+    vehicleExtractor = new VehicleNumberExtractor(strategies, textNormalizer);
+    companyExtractor = new CompanyExtractor(strategies, textNormalizer);
+
+    // Weight Extractor 생성
+    TotalWeightExtractor totalWeightExtractor =
+        new TotalWeightExtractor(strategies, textNormalizer);
+    VehicleWeightExtractor vehicleWeightExtractor =
+        new VehicleWeightExtractor(strategies, textNormalizer);
+    NetWeightExtractor netWeightExtractor =
+        new NetWeightExtractor(strategies, textNormalizer);
+
+    weightExtractor = new WeightExtractor(
+        totalWeightExtractor,
+        vehicleWeightExtractor,
+        netWeightExtractor
+    );
+  }
 
   @Test
   void extractAllFieldsFromSample01() throws Exception {
@@ -42,7 +91,6 @@ class FieldExtractorIntegrationTest {
   }
 
   @Test
-  @Disabled("Issue #4 이후 활성화 예정: sample_04에서 '차량 No.' 형식 미지원")
   void extractAllFieldsFromAllSamples() throws Exception {
     // given
     String[] samples = {
