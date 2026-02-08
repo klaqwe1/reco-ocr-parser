@@ -6,7 +6,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * 텍스트 매칭 유틸리티
- * 정확 매칭 + Fuzzy Matching (Levenshtein Distance) 제공
  */
 @Component
 public class TextMatcher {
@@ -25,7 +24,7 @@ public class TextMatcher {
   /**
    * 텍스트에서 키워드 매칭 (정규화 + Fuzzy)
    *
-   * @param text 검색 대상 텍스트
+   * @param text     검색 대상 텍스트
    * @param keywords 키워드 배열
    * @return 매칭 성공 시 true
    */
@@ -55,9 +54,9 @@ public class TextMatcher {
   }
 
   /**
-   * 키워드의 인덱스 찾기 (정규화된 텍스트 기준)
+   * 키워드의 인덱스 찾기 (정규화된 텍스트 기준) 정확 매칭 시도 → 실패 시 Fuzzy Matching 시도
    *
-   * @param text 검색 대상 텍스트
+   * @param text     검색 대상 텍스트
    * @param keywords 키워드 배열
    * @return 매칭된 키워드의 시작 인덱스 (없으면 -1)
    */
@@ -69,6 +68,7 @@ public class TextMatcher {
 
     String normalizedText = textNormalizer.normalize(text);
 
+    // 1차: 정확 매칭
     for (String keyword : keywords) {
       String normalizedKeyword = textNormalizer.normalize(keyword);
       int index = normalizedText.indexOf(normalizedKeyword);
@@ -77,14 +77,57 @@ public class TextMatcher {
       }
     }
 
+    // 2차: Fuzzy Matching
+    for (String keyword : keywords) {
+      int fuzzyIndex = findFuzzyKeywordIndex(text, keyword);
+      if (fuzzyIndex >= 0) {
+        return fuzzyIndex;
+      }
+    }
+
     return -1;
   }
 
   /**
-   * Fuzzy Matching (Levenshtein Distance 기반)
-   * 유사도 = 1 - (거리 / 긴 문자열 길이)
+   * Fuzzy Matching으로 키워드 인덱스 찾기
    *
-   * @param text 검색 대상 텍스트
+   * @param text    검색 대상 텍스트
+   * @param keyword 키워드
+   * @return 매칭된 시작 인덱스 (없으면 -1)
+   */
+  private int findFuzzyKeywordIndex(String text, String keyword) {
+    if (text == null || keyword == null) {
+      return -1;
+    }
+
+    String normalizedText = textNormalizer.normalize(text);
+    String normalizedKeyword = textNormalizer.normalize(keyword);
+
+    int keywordLen = normalizedKeyword.length();
+    int textLen = normalizedText.length();
+
+    if (keywordLen > textLen) {
+      return -1;
+    }
+
+    double threshold = parserProperties.getFuzzyMatchThreshold();
+
+    for (int i = 0; i <= textLen - keywordLen; i++) {
+      String window = normalizedText.substring(i, i + keywordLen);
+      double similarity = calculateSimilarity(window, normalizedKeyword);
+
+      if (similarity >= threshold) {
+        return i;  // 매칭된 시작 인덱스 반환
+      }
+    }
+
+    return -1;
+  }
+
+  /**
+   * Fuzzy Matching (Levenshtein Distance 기반) 유사도 = 1 - (거리 / 긴 문자열 길이)
+   *
+   * @param text    검색 대상 텍스트
    * @param keyword 키워드
    * @return 유사도가 threshold 이상이면 true
    */
@@ -119,8 +162,7 @@ public class TextMatcher {
   }
 
   /**
-   * 유사도 계산
-   * similarity = 1 - (distance / maxLength)
+   * 유사도 계산 similarity = 1 - (distance / maxLength)
    *
    * @param str1 문자열 1
    * @param str2 문자열 2
