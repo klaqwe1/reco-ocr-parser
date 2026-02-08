@@ -84,4 +84,13 @@ public abstract class AbstractFieldExtractor<T> implements FieldExtractor<T> {
   protected Optional<T> extractWithFallback(OcrDocument document) {
     return Optional.empty();
   }
+
+  /**
+   * 전략 목록을 반환 (서브클래스에서 재사용 가능)
+   *
+   * @return 전략 목록
+   */
+  protected List<ExtractionStrategy> getStrategies() {
+    return strategies;
+  }
 }
