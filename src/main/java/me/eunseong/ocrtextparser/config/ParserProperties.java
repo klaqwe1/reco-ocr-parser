@@ -13,9 +13,9 @@ import org.springframework.context.annotation.Configuration;
 public class ParserProperties {
 
   /**
-   * Fuzzy Matching 임계값 (0.0 ~ 1.0) (임의값)
+   * Fuzzy Matching 임계값 (0.0 ~ 1.0)
    */
-  private double fuzzyMatchThreshold = 0.8;
+  private double fuzzyMatchThreshold = 0.75;
 
   /**
    * 좌표 기반 추출 설정
