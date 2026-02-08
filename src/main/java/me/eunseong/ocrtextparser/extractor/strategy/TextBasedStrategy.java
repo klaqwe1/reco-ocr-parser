@@ -5,6 +5,7 @@ import me.eunseong.ocrtextparser.util.TextMatcher;
 import me.eunseong.ocrtextparser.util.TextNormalizer;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,11 +38,23 @@ public class TextBasedStrategy implements ExtractionStrategy {
       return Optional.empty();
     }
 
-    for (String line : document.getLines()) {
+    List<String> lines = document.getLines();
+    for (int i = 0; i < lines.size(); i++) {
+      String line = lines.get(i);
       if (textMatcher.matches(line, keywords)) {
         Optional<String> value = extractValueFromLine(line, keywords);
         if (value.isPresent()) {
           return value;
+        }
+
+        // 현재 라인에서 값을 찾지 못했고 다음 라인이 있으면 다음 라인에서 시도
+        // (키워드와 값이 다른 줄에 있는 경우 처리)
+        if (i + 1 < lines.size()) {
+          String nextLine = lines.get(i + 1);
+          Optional<String> nextLineValue = extractValueFromNextLine(nextLine);
+          if (nextLineValue.isPresent()) {
+            return nextLineValue;
+          }
         }
       }
     }
@@ -128,6 +141,29 @@ public class TextBasedStrategy implements ExtractionStrategy {
   }
 
   /**
+   * 다음 라인에서 값 추출 (키워드가 한 줄, 값이 다음 줄에 있는 경우)
+   * 시간 패턴(HH:MM:SS)을 제외하고 값을 추출
+   *
+   * @param line 다음 라인
+   * @return 추출된 값
+   */
+  private Optional<String> extractValueFromNextLine(String line) {
+    if (line == null || line.trim().isEmpty()) {
+      return Optional.empty();
+    }
+
+    // 시간 패턴 제거 (HH:MM:SS 형식)
+    // 예: "05:36:01 7,470 kg" → "7,470 kg"
+    String cleanedLine = line.replaceAll("\\d{2}:\\d{2}:\\d{2}\\s*", "").trim();
+
+    if (cleanedLine.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return extractValue(cleanedLine);
+  }
+
+  /**
    * 텍스트에서 값 추출 (콜론 제거, 패턴 매칭)
    *
    * @param text 텍스트
@@ -138,7 +174,12 @@ public class TextBasedStrategy implements ExtractionStrategy {
       return Optional.empty();
     }
 
-    // 콜론 제거
+    // 시간 패턴 제거 (HH:MM:SS 또는 HH:MM 또는 HH : MM 형식)
+    // 예: "02:07 13 460 kg" → "13 460 kg"
+    // 예: "02 : 13 7 560 kg" → "7 560 kg"
+    text = text.replaceAll("\\d{2}\\s*:\\s*\\d{2}(\\s*:\\s*\\d{2})?\\s*", "").trim();
+
+    // 콜론 제거 (나머지 콜론들)
     text = text.replace(":", "").trim();
 
     // 패턴 매칭
